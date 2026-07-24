@@ -4,7 +4,7 @@ import com.shardedwalletsystem.demo.model.Transaction;
 import com.shardedwalletsystem.demo.model.TransactionStatus;
 import com.shardedwalletsystem.demo.repository.TransactionRepository;
 import com.shardedwalletsystem.demo.service.saga.SagaContext;
-import com.shardedwalletsystem.demo.service.saga.SagaStep;
+import com.shardedwalletsystem.demo.service.saga.SagaStepInterface;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class UpdateTransactionStatus implements SagaStep {
+public class UpdateTransactionStatus implements SagaStepInterface {
     private final TransactionRepository transactionRepository;
 
     @Override
