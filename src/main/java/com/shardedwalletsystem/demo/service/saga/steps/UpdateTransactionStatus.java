@@ -1,5 +1,6 @@
 package com.shardedwalletsystem.demo.service.saga.steps;
 
+import com.shardedwalletsystem.demo.exceptions.ResourceNotFoundException;
 import com.shardedwalletsystem.demo.model.Transaction;
 import com.shardedwalletsystem.demo.model.TransactionStatus;
 import com.shardedwalletsystem.demo.repository.TransactionRepository;
@@ -8,6 +9,7 @@ import com.shardedwalletsystem.demo.service.saga.SagaStepInterface;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -16,31 +18,69 @@ public class UpdateTransactionStatus implements SagaStepInterface {
     private final TransactionRepository transactionRepository;
 
     @Override
+    @Transactional
     public boolean execute(SagaContext context) {
-        Long transactionId=context.getLong("transactionId");
-        log.info("Updating transaction status for transaction {}",transactionId);
-        Transaction transaction=transactionRepository.findById(transactionId).orElseThrow(()->new RuntimeException("Transaction not found"));
-        context.put("originalTransactionStatus",transaction.getStatus());
-        transaction.setStatus(TransactionStatus.SUCCESS);
-        transactionRepository.save(transaction);
-        log.info("Transaction status updated for transaction {}",transactionId);
-        context.put("transactionStatusAfterUpdate",transaction.getStatus());
-        log.info("Update transaction status step executed successfully");
-        return true;
+        try{
+            Long transactionId=context.getLong("transactionId");
+            if (transactionId == null) {
+                log.error("Missing required context: transactionId");
+                return false;
+            }
+            log.info("Updating transaction status to SUCCESS for transaction {}", transactionId);
+            Transaction transaction = transactionRepository.findById(transactionId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Transaction not found with id: " + transactionId));
+            context.put("originalTransactionStatus", transaction.getStatus().name());
+            transaction.setStatus(TransactionStatus.SUCCESS);
+            transactionRepository.save(transaction);
+            log.info("Transaction {} status updated to SUCCESS", transactionId);
+            context.put("transactionStatusAfterUpdate", transaction.getStatus().name());
+            return true;
+        }
+        catch (Exception e) {
+            log.error("Error updating transaction status", e);
+            return false;
+        }
     }
     @Override
+    @Transactional
     public boolean compensate(SagaContext context) {
-        Long transactionId=context.getLong("transactionId");
-        TransactionStatus originalTransactionStatus= TransactionStatus.valueOf(context.getString("originalTransactionStatus"));
-        log.info("Compensating transaction status for transaction {}",transactionId);
-        Transaction transaction=transactionRepository.findById(transactionId).orElseThrow(()->new RuntimeException("Transaction not found"));
-        transaction.setStatus(originalTransactionStatus);
-        transactionRepository.save(transaction);
-        log.info("Transaction status updated for transaction {}",transactionId);
-        return true;
+        try{
+            Long transactionId = context.getLong("transactionId");
+            String originalStatusStr = context.getString("originalTransactionStatus");
+
+            if (transactionId == null) {
+                log.error("Missing required context for compensation: transactionId");
+                return false;
+            }
+
+            log.info("Compensating transaction status for transaction {}", transactionId);
+            Transaction transaction = transactionRepository.findById(transactionId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Transaction not found with id: " + transactionId));
+            // Set to CANCELLED instead of original status for better tracking
+            TransactionStatus compensationStatus = TransactionStatus.CANCELLED;
+            if (originalStatusStr != null) {
+                try {
+                    TransactionStatus originalStatus = TransactionStatus.valueOf(originalStatusStr);
+                    log.info("Original status was {}, setting to CANCELLED", originalStatus);
+                } catch (IllegalArgumentException e) {
+                    log.warn("Invalid original status: {}", originalStatusStr);
+                }
+            }
+            transaction.setStatus(compensationStatus);
+            transactionRepository.save(transaction);
+            log.info("Transaction {} status compensated to {}", transactionId, compensationStatus);
+
+            return true;
+        }
+        catch (Exception e) {
+            log.error("Error compensating transaction status", e);
+            return false;
+        }
     }
     @Override
     public String getStepName(){
-        return "UpdateTransactionStatus";
+        return SagaStepType.UPDATE_TRANSACTION_STATUS_STEP.toString();
     }
 }
