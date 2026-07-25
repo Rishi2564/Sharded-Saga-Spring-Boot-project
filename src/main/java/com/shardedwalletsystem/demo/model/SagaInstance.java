@@ -3,6 +3,7 @@ package com.shardedwalletsystem.demo.model;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.apache.calcite.model.JsonType;
@@ -11,6 +12,7 @@ import org.apache.calcite.model.JsonType;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
+@Builder
 @Table(name="saga_instance")
 public class SagaInstance {
     @Id
