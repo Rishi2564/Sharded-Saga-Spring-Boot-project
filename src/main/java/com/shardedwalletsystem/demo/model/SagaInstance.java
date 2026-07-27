@@ -28,4 +28,8 @@ public class SagaInstance {
 
     @Column(name = "current_step", nullable = false)
     private String currentStep;
+
+    public void markAsRunning(){
+        this.status = SagaStatus.RUNNING;
+    }
 }
